@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>每日励志播报</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: -apple-system, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh; display: flex; flex-direction: column; align-items: center;
+            padding: 20px; color: white;
+        }
+        .container {
+            background: rgba(255,255,255,0.95); color: #333;
+            max-width: 600px; width: 100%; border-radius: 20px;
+            padding: 30px; margin-top: 30px; box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            text-align: center;
+        }
+        .date { color: #666; font-size: 14px; margin-bottom: 10px; }
+        h1 { font-size: 24px; margin-bottom: 20px; color: #333; }
+        .quote-box {
+            background: #f8f9fa; border-left: 4px solid #667eea;
+            padding: 20px; margin: 20px 0; border-radius: 8px;
+            font-size: 18px; line-height: 1.6; color: #2c3e50;
+            min-height: 100px;
+        }
+        .book { color: #667eea; font-size: 14px; margin-top: 10px; font-weight: bold; }
+        .interpretation {
+            background: #e8f4f8; padding: 15px; border-radius: 8px;
+            margin-top: 20px; font-size: 16px; color: #555; line-height: 1.5;
+            display: none;
+        }
+        .play-btn {
+            background: #667eea; color: white; border: none;
+            width: 80px; height: 80px; border-radius: 50%;
+            font-size: 32px; margin: 30px auto; cursor: pointer;
+            box-shadow: 0 4px 15px rgba(102,126,234,0.4);
+            display: flex; align-items: center; justify-content: center;
+        }
+        .play-btn:active { transform: scale(0.95); }
+        .tip { font-size: 12px; color: #999; margin-top: 20px; }
+        .error { color: #e74c3c; font-size: 14px; margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="date" id="date">加载中...</div>
+        <h1>☀️ 早安励志播报</h1>
+        
+        <div class="quote-box">
+            <div id="quote">正在获取今日语录...</div>
+            <div class="book" id="book"></div>
+        </div>
+        
+        <div class="interpretation" id="interpretation"></div>
+        <div class="error" id="error"></div>
+        
+        <button class="play-btn" onclick="playAudio()" id="playBtn">▶️</button>
+        
+        <div class="tip">
+            每天早上打开，自动播放今日励志语录<br>
+            点击播放按钮可重复收听
+        </div>
+    </div>
+
+    <script>
+        let todayData = null;
+        
+        // 页面加载就获取数据
+        window.onload = async function() {
+            try {
+                const res = await fetch('/today');
+                todayData = await res.json();
+                
+                // 检查是否有错误
+                if (todayData.book === "错误") {
+                    document.getElementById('quote').innerHTML = "📚 " + todayData.quote;
+                    document.getElementById('book').textContent = todayData.book;
+                    document.getElementById('date').textContent = "出错了";
+                    return;
+                }
+                
+                document.getElementById('date').textContent = todayData.date;
+                document.getElementById('quote').textContent = todayData.quote;
+                document.getElementById('book').textContent = "—— " + todayData.book;
+                
+                if(todayData.interpretation) {
+                    document.getElementById('interpretation').textContent = todayData.interpretation;
+                    document.getElementById('interpretation').style.display = 'block';
+                }
+                
+                // 检查今天是否已经播放过
+                const lastPlay = localStorage.getItem('lastPlayDate');
+                const today = new Date().toDateString();
+                
+                if(lastPlay !== today) {
+                    // 今天第一次打开，自动播放
+                    setTimeout(() => {
+                        playAudio();
+                        localStorage.setItem('lastPlayDate', today);
+                    }, 1000);
+                }
+                
+            } catch(e) {
+                document.getElementById('quote').textContent = '获取失败，请刷新重试';
+                document.getElementById('error').textContent = '错误：' + e.message;
+            }
+        };
+        
+        function playAudio() {
+            if(!todayData) return;
+            
+            // 停止之前的
+            window.speechSynthesis.cancel();
+            
+            const text = `今天是${todayData.date}。${todayData.book}里有这样一句话：${todayData.quote}。${todayData.interpretation || ''}`;
+            
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = 'zh-CN';
+            utterance.rate = 0.9;
+            utterance.pitch = 1.0;
+            
+            // 尝试用中文语音
+            const voices = window.speechSynthesis.getVoices();
+            const zhVoice = voices.find(v => v.lang.includes('zh')) || voices[0];
+            if(zhVoice) utterance.voice = zhVoice;
+            
+            document.getElementById('playBtn').textContent = '🔊';
+            
+            utterance.onend = () => {
+                document.getElementById('playBtn').textContent = '▶️';
+            };
+            
+            window.speechSynthesis.speak(utterance);
+        }
+        
+        // 预加载语音
+        window.speechSynthesis.getVoices();
+    </script>
+</body>
+</html>
